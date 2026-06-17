@@ -34,6 +34,9 @@ select = [
 [tool.pdm]
 distribution = true
 
+[tool.pdm.build]
+package-dir = "src"
+
 [tool.pdm.scripts]
 checks.composite = ["ruff check .", "ty check .", "pytest -q"]
 checks.keep_going = true
