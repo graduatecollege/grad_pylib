@@ -64,7 +64,7 @@ class AuthConfiguration:
 
 type ClaimsToUser = Callable[[dict[str, Any]], Any]
 type OverrideLoader = Callable[[Any, Session], Any]
-type ApiKeyUserBuilder = Callable[[str | None, Request], Any]
+type ApiKeyUserBuilder = Callable[[str | None, Request], CurrentUser]
 type SettingsProvider = Callable[[], BaseAppSettings]
 type SessionProvider = Callable[[], Any]
 
@@ -259,7 +259,7 @@ def require_policy(
             if dev_api_key and secrets.compare_digest(api_key, dev_api_key) and api_key_user_builder:
                 user = api_key_user_builder(request.headers.get(config.api_role_header), request)
                 result = _evaluate_policy(user, policy, required_roles, forbidden_error_factory)
-                _logger.warning("Using development API key for role: %s", user.role)
+                _logger.warning("Using development API key for policy: %s", policy)
                 return result
 
         if not azure_user:
