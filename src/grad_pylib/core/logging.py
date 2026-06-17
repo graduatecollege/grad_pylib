@@ -64,28 +64,18 @@ async def bind_request_id_context(
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
 ) -> Response:
+    """
+    Handles the binding of a request ID to the structured logging context.
+    """
     structlog.contextvars.clear_contextvars()
 
     request_id = request.headers.get(REQUEST_ID_HEADER)
     if request_id:
         structlog.contextvars.bind_contextvars(**{REQUEST_ID_FIELD: request_id})
 
-    start_time = time.perf_counter()
-    structlog.get_logger("http.access").info(
-        "request_started",
-        method=request.method,
-        path=request.url.path,
-    )
     try:
         response = await call_next(request)
-        duration = time.perf_counter() - start_time
-        structlog.get_logger("http.access").info(
-            "request_finished",
-            method=request.method,
-            path=request.url.path,
-            status=response.status_code,
-            duration_ms=round(duration * 1000, 2),
-        )
+
         return response
     finally:
         structlog.contextvars.clear_contextvars()

@@ -6,11 +6,11 @@ from typing import Any
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine, make_url
 
-from grad_pylib.data.generate_models import (
+from grad_pylib.tools.generate_models import (
     default_generated_models_path,
     generate_models,
 )
-from grad_pylib.data.migrate import run_migrations
+from grad_pylib.tools.migrate import run_migrations
 
 DEFAULT_SQL_SERVER_IMAGE = "mcr.microsoft.com/mssql/server:2022-CU12-ubuntu-22.04"
 DEFAULT_DATABASE_NAME = "App"

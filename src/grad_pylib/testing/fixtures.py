@@ -11,7 +11,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from xdist.workermanage import WorkerController
 
-from grad_pylib.data.rebuild_models import DEFAULT_SQL_SERVER_IMAGE, create_database
+from grad_pylib.tools.rebuild_models import DEFAULT_SQL_SERVER_IMAGE, create_database
 
 
 @dataclass(frozen=True, slots=True)

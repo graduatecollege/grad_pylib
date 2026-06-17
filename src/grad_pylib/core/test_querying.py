@@ -1,68 +1,72 @@
+import pytest
 from typing import Any
 
 import pytest
 from sqlalchemy import Select, select
 
+from grad_pylib.core.querying import (
+    apply_pagination,
+    apply_query,
+    apply_sort, apply_filters,
+)
+
 from grad_pylib.core.exceptions import BadRequestError
 from grad_pylib.core.querying import (
     QuerySpec,
-    apply_filters,
-    apply_pagination,
-    apply_query,
-    apply_sort,
     build_order_by_clause,
     build_where_clause,
 )
-from data.generated.models import Nomination, t_department_enrollment_preview
+from grad_pylib.testing.fake_models import FooNomination, t_foo_view
 
 SPEC = QuerySpec(
     filterable={
-        "term_code": Nomination.term_code,
-        "department_code": Nomination.department_code,
-        "requested_amount": Nomination.requested_amount,
+        "term_code": FooNomination.term_code,
+        "department_code": FooNomination.department_code,
+        "requested_amount": FooNomination.requested_amount,
     },
     sortable={
-        "submitted_at": Nomination.submitted_at,
-        "department_code": Nomination.department_code,
+        "submitted_at": FooNomination.submitted_at,
+        "department_code": FooNomination.department_code,
     },
     default_sort="-submitted_at",
 )
+
 
 def _sql(stmt: Select[Any]) -> str:
     return str(stmt.compile(compile_kwargs={"literal_binds": True}))
 
 
 def test_apply_filters_equality():
-    stmt = apply_filters(select(Nomination), SPEC, {"term_code": "120251"})
+    stmt = apply_filters(select(FooNomination), SPEC, {"term_code": "120251"})
     assert "term_code = '120251'" in _sql(stmt)
 
 
 def test_apply_filters_ignores_none_values():
-    stmt = apply_filters(select(Nomination), SPEC, {"term_code": None, "department_code": "1227"})
+    stmt = apply_filters(select(FooNomination), SPEC, {"term_code": None, "department_code": "1227"})
     sql = _sql(stmt)
     assert "term_code" not in sql.split("WHERE", 1)[1]
     assert "department_code = '1227'" in sql
 
 
 def test_apply_filters_operator_suffix():
-    stmt = apply_filters(select(Nomination), SPEC, {"requested_amount__gte": 100})
+    stmt = apply_filters(select(FooNomination), SPEC, {"requested_amount__gte": 100})
     assert "requested_amount >= 100" in _sql(stmt)
 
 
 def test_apply_filters_unknown_field_raises():
     with pytest.raises(BadRequestError):
-        apply_filters(select(Nomination), SPEC, {"uin": "123"})
+        apply_filters(select(FooNomination), SPEC, {"uin": "123"})
 
 
 def test_apply_filters_unknown_operator_raises():
     with pytest.raises(BadRequestError):
-        apply_filters(select(Nomination), SPEC, {"term_code__between": "x"})
+        apply_filters(select(FooNomination), SPEC, {"term_code__between": "x"})
 
 
 def test_apply_filters_too_many_fields_raises():
     with pytest.raises(BadRequestError, match="Too many filter fields"):
         apply_filters(
-            select(Nomination),
+            select(FooNomination),
             SPEC,
             {
                 "term_code": "120251",
@@ -74,44 +78,44 @@ def test_apply_filters_too_many_fields_raises():
 
 
 def test_apply_sort_descending():
-    stmt = apply_sort(select(Nomination), SPEC, "-submitted_at")
+    stmt = apply_sort(select(FooNomination), SPEC, "-submitted_at")
     assert "ORDER BY" in _sql(stmt)
     assert "submitted_at DESC" in _sql(stmt)
 
 
 def test_apply_sort_accepts_table_column_expression():
     table_spec = QuerySpec(
-        sortable={"department_code": t_department_enrollment_preview.c.department_code},
+        sortable={"department_code": t_foo_view.c.department_code},
         default_sort="department_code",
     )
-    stmt = apply_sort(select(t_department_enrollment_preview), table_spec, None)
+    stmt = apply_sort(select(t_foo_view), table_spec, None)
     assert "department_enrollment_preview.department_code ASC" in _sql(stmt)
 
 
 def test_apply_sort_multiple_fields():
-    stmt = apply_sort(select(Nomination), SPEC, "department_code,-submitted_at")
+    stmt = apply_sort(select(FooNomination), SPEC, "department_code,-submitted_at")
     sql = _sql(stmt)
     assert "department_code ASC" in sql
     assert "submitted_at DESC" in sql
 
 
 def test_apply_sort_uses_default_when_empty():
-    stmt = apply_sort(select(Nomination), SPEC, None)
+    stmt = apply_sort(select(FooNomination), SPEC, None)
     assert "submitted_at DESC" in _sql(stmt)
 
 
 def test_apply_sort_unknown_field_raises():
     with pytest.raises(BadRequestError):
-        apply_sort(select(Nomination), SPEC, "uin")
+        apply_sort(select(FooNomination), SPEC, "uin")
 
 
 def test_apply_sort_too_many_fields_raises():
     with pytest.raises(BadRequestError, match="Too many sort fields"):
-        apply_sort(select(Nomination), SPEC, "department_code,submitted_at,uin")
+        apply_sort(select(FooNomination), SPEC, "department_code,submitted_at,uin")
 
 
 def test_apply_pagination_limit_and_offset():
-    stmt = apply_pagination(select(Nomination), limit=25, offset=50)
+    stmt = apply_pagination(select(FooNomination), limit=25, offset=50)
     sql = _sql(stmt)
     assert "LIMIT 25" in sql
     assert "OFFSET 50" in sql
@@ -119,22 +123,22 @@ def test_apply_pagination_limit_and_offset():
 
 def test_apply_pagination_limit_must_be_positive():
     with pytest.raises(BadRequestError, match="'limit' must be greater than 0"):
-        apply_pagination(select(Nomination), limit=0)
+        apply_pagination(select(FooNomination), limit=0)
 
 
 def test_apply_pagination_offset_must_be_non_negative():
     with pytest.raises(BadRequestError, match="'offset' must be greater than or equal to 0"):
-        apply_pagination(select(Nomination), offset=-1)
+        apply_pagination(select(FooNomination), offset=-1)
 
 
 def test_apply_pagination_rejects_non_integer_values():
     with pytest.raises(BadRequestError, match="'limit' must be an integer"):
-        apply_pagination(select(Nomination), limit="abc")
+        apply_pagination(select(FooNomination), limit="abc")
 
 
 def test_apply_query_combines_filter_and_sort():
     stmt = apply_query(
-        select(Nomination),
+        select(FooNomination),
         SPEC,
         filters={"department_code": "1227"},
         sort="department_code",
@@ -146,7 +150,7 @@ def test_apply_query_combines_filter_and_sort():
 
 def test_apply_query_combines_filter_sort_and_pagination():
     stmt = apply_query(
-        select(Nomination),
+        select(FooNomination),
         SPEC,
         filters={"department_code": "1227"},
         sort="department_code",

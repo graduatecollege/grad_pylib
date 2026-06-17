@@ -3,7 +3,13 @@ name = "grad-pylib"
 version = "0.1.0"
 description = "Internal core helpers and wrappers for FastAPI backends"
 authors = [
-    { name = "Graduate College", email = "grad@illinois.edu" },
+    { name = "Mikael Arvola", email = "marvel@illinois.edu" },
+]
+license-files = [
+    "LICENSE", "NOTICE"
+]
+dynamic = [
+    "version"
 ]
 dependencies = [
     "fastapi==0.136.3",
@@ -18,19 +24,20 @@ dependencies = [
 requires-python = ">=3.14,<3.15"
 readme = "README.md"
 
+[project.urls]
+Source = "https://github.com/graduatecollege/grad_pylib"
+
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
-[tool.ruff.lint]
-select = [
-    "FAST",
-    "ANN001",
-    "ANN002",
-    "ASYNC",
-    "SIM",
-    "UP"
-]
+[tool.pdm.version]
+source = "scm"
+version_format = "src.airflow.providers.box.version:format_version"
+tag_filter = "v*"
+tag_regex = '^v(?P<version>\d+\.\d+\.\d+)$'
+write_to = "airflow/providers/box/_version.txt"
+
 [tool.pdm]
 distribution = true
 
@@ -40,6 +47,7 @@ package-dir = "src"
 [tool.pdm.scripts]
 checks.composite = ["ruff check .", "ty check .", "pytest -q"]
 checks.keep_going = true
+barrel = "python scripts/generate_barrel.py"
 
 [tool.pdm.dev-dependencies]
 test = [
@@ -56,4 +64,14 @@ tool = [
     "pymssql==2.3.13",
     "ty>=0.0.44",
     "ruff>=0.15.16"
+]
+
+[tool.ruff.lint]
+select = [
+    "FAST",
+    "ANN001",
+    "ANN002",
+    "ASYNC",
+    "SIM",
+    "UP"
 ]

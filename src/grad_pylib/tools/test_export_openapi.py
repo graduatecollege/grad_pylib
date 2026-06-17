@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from fastapi import FastAPI
 
-from grad_pylib.data.export_openapi import (
+from grad_pylib.tools.export_openapi import (
     _resolve_app_factory,
     default_openapi_output_path,
     export_openapi,

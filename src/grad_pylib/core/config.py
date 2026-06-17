@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,10 +34,20 @@ class BaseAppSettings(BaseSettings):
     def is_development(self) -> bool:
         return self.environment.lower() in {"development", "local", "test"}
 
+    @model_validator(mode="after")
+    def _guard_dev_api_key(self) -> BaseAppSettings:
+        if self.enable_dev_api_key and not self.is_development:
+            raise ValueError(
+                "enable_dev_api_key must not be enabled outside a development "
+                f"environment (environment={self.environment!r}). The development "
+                "API key bypass is intended for local development only."
+            )
+        return self
+
     @property
-    def azure_ad_scope_name(self) -> str | None:
+    def azure_ad_scope_name(self) -> str:
         if not self.azure_ad_client_id:
-            return None
+            raise ValueError("Azure AD scope must be set in the environment or settings.")
         return f"api://{self.azure_ad_client_id}/{self.azure_ad_scope_description}"
 
     @property

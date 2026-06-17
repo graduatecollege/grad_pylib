@@ -2,7 +2,7 @@ from pathlib import Path
 
 from sqlalchemy import create_engine, text
 
-from grad_pylib.data.migrate import run_migrations, split_batches
+from grad_pylib.tools.migrate import run_migrations, split_batches
 
 
 def test_split_batches_supports_go_delimiter() -> None:
