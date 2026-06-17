@@ -1,6 +1,5 @@
 [project]
 name = "grad-pylib"
-version = "0.1.0"
 description = "Internal core helpers and wrappers for FastAPI backends"
 authors = [
     { name = "Mikael Arvola", email = "marvel@illinois.edu" },
@@ -31,18 +30,19 @@ Source = "https://github.com/graduatecollege/grad_pylib"
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
+[tool.pdm.build]
+package-dir = "src"
+includes = ["src/grad_pylib"]
+
 [tool.pdm.version]
 source = "scm"
-version_format = "src.airflow.providers.box.version:format_version"
+version_format = "version_format:format_version"
 tag_filter = "v*"
 tag_regex = '^v(?P<version>\d+\.\d+\.\d+)$'
-write_to = "airflow/providers/box/_version.txt"
+write_to = "grad_pylib/_version.txt"
 
 [tool.pdm]
 distribution = true
-
-[tool.pdm.build]
-package-dir = "src"
 
 [tool.pdm.scripts]
 checks.composite = ["ruff check .", "ty check .", "pytest -q"]

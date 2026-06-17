@@ -17,6 +17,7 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 .env
+.pdm-build/
 
 # Not using uv directly
 uv.lock
