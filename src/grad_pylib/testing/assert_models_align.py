@@ -16,7 +16,7 @@ SQLA_TYPE_MAP = {
 def assert_models_align(
         db_model: Any,
         api_model: type[BaseModel],
-        ignore_fields: set[str] = None
+        ignore_fields: set[str] | None = None
 ):
     """
     Asserts that a SQLAlchemy model and a Pydantic API model have
