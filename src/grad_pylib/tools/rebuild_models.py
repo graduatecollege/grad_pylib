@@ -2,6 +2,7 @@ import argparse
 import re
 from pathlib import Path
 from typing import Any
+from unicodedata import bidirectional
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine, make_url
@@ -47,6 +48,7 @@ def rebuild_models(
         image: str = DEFAULT_SQL_SERVER_IMAGE,
         database_name: str = DEFAULT_DATABASE_NAME,
         schema_dir: str | None = None,
+        bidirectional: bool = False,
         password: str | None = None,
 ) -> Path:
     container_class = sqlserver_container_class()
@@ -58,7 +60,7 @@ def rebuild_models(
             run_migrations(engine, schema_dir=schema_dir)
         finally:
             engine.dispose()
-        generate_models(output_path=output_path, database_url=database_url)
+        generate_models(output_path=output_path, database_url=database_url, bidirectional=bidirectional)
 
     return Path(output_path) if output_path else default_generated_models_path()
 
@@ -76,6 +78,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--schema-dir", help="Directory containing SQL migration files.")
     parser.add_argument("--password", help="SA password for the temporary SQL Server.")
+    parser.add_argument("--bidirectional", help="Generate bidirectional relationships.", action="store_true")
     return parser
 
 
@@ -86,6 +89,7 @@ def main() -> None:
         image=args.image,
         database_name=args.database_name,
         schema_dir=args.schema_dir,
+        bidirectional=args.bidirectional,
         **{"password": args.password},
     )
     print(f"Generated models at {output_path}")

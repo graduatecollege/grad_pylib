@@ -8,7 +8,7 @@ from sqlalchemy.schema import MetaData
 
 from grad_pylib.core.db import resolve_database_url
 
-_GENERATOR_OPTIONS = {"use_inflect", "nojoined", "nobidi"}
+_GENERATOR_OPTIONS = {"use_inflect", "nojoined"}
 _DEFAULT_IGNORED_TABLES = {"schema_migrations"}
 _DEFAULT_STRING_COLLATION = "SQL_Latin1_General_CP1_CI_AS"
 
@@ -36,6 +36,7 @@ def normalize_default_collations(metadata: MetaData, default_string_collation: s
 def generate_models(
         output_path: str | None = None,
         database_url: str | None = None,
+        bidirectional: bool = False,
         *,
         ignored_tables: set[str] | None = None,
         default_string_collation: str = _DEFAULT_STRING_COLLATION,
@@ -49,10 +50,17 @@ def generate_models(
     generators = entry_points(group="sqlacodegen.generators")
     generator_class = next(ep for ep in generators if ep.name == "declarative").load()
 
+    opts = _GENERATOR_OPTIONS.copy()
+    if not bidirectional:
+        opts.add("nobidi")
+        print("bidirectional=False")
+    else:
+        print("bidirectional=True")
+
     engine = create_engine(effective_database_url)
     try:
         metadata = MetaData()
-        generator = generator_class(metadata, engine, _GENERATOR_OPTIONS)
+        generator = generator_class(metadata, engine, opts)
         metadata.reflect(engine, None, generator.views_supported, should_reflect_table(effective_ignored_tables))
         normalize_default_collations(metadata, default_string_collation)
         target_path.write_text(generator.generate(), encoding="utf-8")
@@ -60,13 +68,11 @@ def generate_models(
         engine.dispose()
 
 
-def build_argument_parser() -> argparse.ArgumentParser:
+
+def main() -> None:
     parser = argparse.ArgumentParser(description="Generate SQLAlchemy models from a database.")
     parser.add_argument("--output-path", help="Path for generated models output.")
     parser.add_argument("--database-url", help="Database URL override.")
-    return parser
-
-
-def main() -> None:
-    args = build_argument_parser().parse_args()
-    generate_models(output_path=args.output_path, database_url=args.database_url)
+    parser.add_argument("--bidirectional", help="Generate bidirectional relationships.", action="store_true")
+    args = parser.parse_args()
+    generate_models(output_path=args.output_path, database_url=args.database_url, bidirectional=args.bidirectional)
