@@ -11,11 +11,11 @@ dynamic = [
     "version"
 ]
 dependencies = [
-    "fastapi==0.136.3",
-    "uvicorn[standard]>=0.48.0",
-    "sqlalchemy==2.0.50",
-    "fastapi-azure-auth==5.2.0",
-    "pydantic-settings==2.14.1",
+    "fastapi~=0.136.3",
+    "uvicorn[standard]~=0.48.0",
+    "sqlalchemy~=2.0.50",
+    "fastapi-azure-auth~=5.2.0",
+    "pydantic-settings~=2.14.1",
     "pyodbc>=5.3.0",
     "httptools>=0.8.0",
     "structlog>=26.1.0"
@@ -51,17 +51,17 @@ git_describe_command = "git describe --dirty --tags --long --match 'v*'"
 
 [dependency-groups]
 test = [
-    "pytest==9.0.3",
-    "pytest-xdist==3.8.0",
+    "pytest~=9.0.3",
+    "pytest-xdist~=3.8.0",
     "httpx2>=2.3.0",
-    "testcontainers[mssql]==4.14.2",
-    "pymssql==2.3.13",
+    "testcontainers[mssql]~=4.14.2",
+    "pymssql~=2.3.13",
     "pytest-cov>=7.1.0"
 ]
-tool = [
-    "sqlacodegen==4.0.3",
-    "testcontainers[mssql]==4.14.2",
-    "pymssql==2.3.13",
+dev = [
+    "sqlacodegen~=4.0.3",
+    "testcontainers[mssql]~=4.14.2",
+    "pymssql~=2.3.13",
     "ty>=0.0.44",
     "ruff>=0.15.16"
 ]
