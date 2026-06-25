@@ -18,7 +18,8 @@ dependencies = [
     "pydantic-settings~=2.14.1",
     "pyodbc>=5.3.0",
     "httptools>=0.8.0",
-    "structlog>=26.1.0"
+    "structlog>=26.1.0",
+    "tenacity>=9.1.4",
 ]
 requires-python = ">=3.14,<3.15"
 readme = "README.md"
@@ -28,6 +29,7 @@ migrate = "grad_pylib.tools.migrate:main"
 openapi = "grad_pylib.tools.export_openapi:main"
 generate-models = "grad_pylib.tools.generate_models:main"
 rebuild-models = "grad_pylib.tools.rebuild_models:main"
+extract-codebook = "grad_pylib.tools.extract_codebook:main"
 
 [project.urls]
 Source = "https://github.com/graduatecollege/grad-pylib"

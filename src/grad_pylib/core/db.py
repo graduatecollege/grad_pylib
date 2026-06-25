@@ -1,13 +1,16 @@
+from typing import TypeVar, Any
 import re
 import threading
 from dataclasses import dataclass
 from enum import Enum
 
-from sqlalchemy import URL, create_engine
-from sqlalchemy.engine import Engine
-from sqlalchemy.exc import IntegrityError, DBAPIError
-
 from grad_pylib.core.config import BaseAppSettings, get_settings
+from pydantic import BaseModel
+from sqlalchemy import URL, create_engine, inspect
+from sqlalchemy.engine import Engine
+from sqlalchemy.exc import DBAPIError
+from sqlalchemy.orm import Session, DeclarativeBase
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_incrementing, RetryCallState
 
 
 def build_mssql_url(odbc_connection_string: str) -> str:
@@ -65,6 +68,7 @@ class SqlServerErrorType(Enum):
     DUPLICATE_KEY = "duplicate_key"  # Codes 2601, 2627
     FOREIGN_KEY_VIOLATION = "foreign_key"  # Code 547
     NOT_NULL_VIOLATION = "not_null"  # Code 515
+    RCSI_CONFLICT = "rcsi_conflict"  # Code 3960
     UNKNOWN = "unknown"
 
 
@@ -99,6 +103,9 @@ def parse_mssql_error(e: DBAPIError, idempotency_markers: tuple[str, ...] = ()) 
     if native_code == 1222:  # <-- Added lock timeout handling
         return ParsedSqlError(SqlServerErrorType.LOCK_TIMEOUT, native_code, driver_message, False)
 
+    if native_code == 3960:
+        return ParsedSqlError(SqlServerErrorType.RCSI_CONFLICT, native_code, driver_message, False)
+
     if sql_state != '23000':
         return ParsedSqlError(SqlServerErrorType.UNKNOWN, native_code, driver_message, False)
 
@@ -114,3 +121,100 @@ def parse_mssql_error(e: DBAPIError, idempotency_markers: tuple[str, ...] = ()) 
         return ParsedSqlError(SqlServerErrorType.NOT_NULL_VIOLATION, native_code, driver_message, False)
 
     return ParsedSqlError(SqlServerErrorType.UNKNOWN, native_code, driver_message, False)
+
+
+def _is_transient_conflict(exc: BaseException) -> bool:
+    """Return True for transient SQL Server modifications or race conditions."""
+    if not isinstance(exc, DBAPIError):
+        return False
+
+    error = parse_mssql_error(exc)
+
+    if error.error_type == SqlServerErrorType.DUPLICATE_KEY:
+        # ONLY retry if the duplicate error happened on our specific high-race critical table
+        return error.is_idempotency_hit
+
+    # Retrying both isolation locks AND concurrent race states
+    return error.error_type in {
+        SqlServerErrorType.DEADLOCK,
+        SqlServerErrorType.LOCK_TIMEOUT,
+        SqlServerErrorType.RCSI_CONFLICT
+    }
+
+
+def _rollback_session_before_sleep(retry_state: RetryCallState):
+    """Automatically rolls back the DB session associated with the failed call."""
+    # Look for the 'db' or 'session' argument passed to the function
+    kwargs = retry_state.kwargs
+    args = retry_state.args
+
+    session = next((arg for arg in args if isinstance(arg, Session)), None)
+    if not session:
+        session = next((val for val in kwargs.values() if isinstance(val, Session)), None)
+
+    if session:
+        session.rollback()
+
+
+# Reusable decorator for retrying transient SQL Server contention errors
+retry_on_transient_conflict = retry(
+    retry=retry_if_exception(_is_transient_conflict),
+    stop=stop_after_attempt(3),
+    wait=wait_incrementing(start=0.05, increment=0.05),
+    before_sleep=_rollback_session_before_sleep,
+    reraise=True,
+)
+
+def orm_upsert[ModelT: DeclarativeBase](
+        db: Session,
+        model_cls: type[ModelT],
+        data_source: dict[str, Any] | BaseModel | DeclarativeBase
+) -> None:
+    """
+    Universal, concurrency-safe ORM upsert for SQL Server under RCSI.
+    Accepts raw dicts, Pydantic models, or sqlacodegen DeclarativeBase instances.
+    """
+    # Inspect the core database model to find its primary keys
+    mapper = inspect(model_cls)
+    pk_names = [col.name for col in mapper.primary_key]
+    all_columns = [col.name for col in mapper.columns]
+
+    data: dict[str, Any]
+    # Extract a clean data dictionary regardless of the input type
+    if isinstance(data_source, BaseModel):
+        data = data_source.model_dump(exclude_unset=True)
+    elif isinstance(data_source, DeclarativeBase):
+        # Extract fields directly from the sqlacodegen instance, ignoring internal state
+        data = {k: v for k, v in data_source.__dict__.items() if k in all_columns}
+    elif isinstance(data_source, dict):
+        data = data_source
+    else:
+        raise TypeError("data_source must be a dict, Pydantic model, or DeclarativeBase instance")
+
+    # Drop unexpected keys to avoid setting non-mapped attributes
+    data = {k: v for k, v in data.items() if k in all_columns}
+    # Build the strict lookup filter criteria
+    filter_criteria = {pk: data[pk] for pk in pk_names if pk in data}
+    if len(filter_criteria) != len(pk_names):
+        raise ValueError(f"Provided data missing primary key values for {model_cls.__name__}")
+
+    # Roundtrip 1: Query with hints to secure the lock and bypass snapshots
+    record = (
+        db.query(model_cls)
+        .with_hint(model_cls, "WITH (UPDLOCK, HOLDLOCK)")
+        .filter_by(**filter_criteria)
+        .first()
+    )
+
+    if record:
+        # Update path: Map fields onto the existing tracked instance
+        for key, value in data.items():
+            if key not in pk_names:
+                setattr(record, key, value)
+    else:
+        # Insert path: Pass the cleaned dictionary straight into the model constructor
+        record = model_cls(**data)
+        db.add(record)
+
+    # Roundtrip 2: Commit changes securely
+    db.flush()

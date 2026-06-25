@@ -1,6 +1,7 @@
 import os
 import re
-from typing import Any, Callable, Generator
+from typing import Any
+from collections.abc import Callable, Generator
 from dataclasses import dataclass
 from sqlalchemy import create_engine, text, Engine
 from sqlalchemy.orm import sessionmaker, Session
@@ -84,7 +85,7 @@ def configure_worker_node(
     node.workerinput["shared_mssql_db_name"] = f"{fixture_config.database_prefix}_{worker_id}"
 
 
-def create_mssql_engine(request: pytest.FixtureRequest, fixture_config: SqlServerFixtureConfig) -> Generator[Engine, None, None]:
+def create_mssql_engine(request: pytest.FixtureRequest, fixture_config: SqlServerFixtureConfig) -> Generator[Engine]:
     config = request.config
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", "master")
 
@@ -123,7 +124,7 @@ def create_mssql_engine(request: pytest.FixtureRequest, fixture_config: SqlServe
             engine.dispose()
 
 
-def create_db_session_fixture(mssql_engine: Engine, fixture_config: SqlServerFixtureConfig) -> Generator[Session, None, None]:
+def create_db_session_fixture(mssql_engine: Engine, fixture_config: SqlServerFixtureConfig) -> Generator[Session]:
     SessionLocal = sessionmaker(bind=mssql_engine, autoflush=False, autocommit=False, expire_on_commit=False)
     session = SessionLocal()
 
