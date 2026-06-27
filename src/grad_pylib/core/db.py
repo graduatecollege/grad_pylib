@@ -217,7 +217,6 @@ retry_on_transient_conflict = retry(
 
 
 def _coerce_model_data(
-        model_cls: type[DeclarativeBase],
         data_source: dict[str, Any] | BaseModel | DeclarativeBase,
         *,
         all_columns: list[str],
@@ -253,7 +252,6 @@ def orm_upsert[ModelT: DeclarativeBase](
     all_columns = [col.name for col in mapper.columns]
 
     data = _coerce_model_data(
-        model_cls,
         data_source,
         all_columns=all_columns,
         parameter_name="data_source",
@@ -262,7 +260,6 @@ def orm_upsert[ModelT: DeclarativeBase](
         {}
         if insert_only is None
         else _coerce_model_data(
-            model_cls,
             insert_only,
             all_columns=all_columns,
             parameter_name="insert_only",
